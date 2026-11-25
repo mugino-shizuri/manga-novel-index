@@ -1,0 +1,10 @@
+# generated/ 刻意不列入忽略：
+# 它必须随每次构建一起提交，AI 才能通过 raw URL 直接读取。
+# 风险：改了 data 却忘记重新构建并提交，raw 内容会与源数据不一致。
+
+__pycache__/
+*.pyc
+.generated.tmp/
+
+# 本地编辑器/工具数据，绝不入库
+.codebuddy/

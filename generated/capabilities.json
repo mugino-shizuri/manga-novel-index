@@ -1,0 +1,44 @@
+{
+  "api_version": "1.0",
+  "id_format": "<前缀>-<6位作品号>-<2位系列号>",
+  "group_key_rule": "按 '-' 分割 id 取前两段，再用 '-' 连接",
+  "defaults": {
+    "part": "正篇"
+  },
+  "plugins": [
+    {
+      "id": "manga",
+      "name": "漫画",
+      "version": "1.0.0",
+      "record_prefix": "manga",
+      "count": 3,
+      "work_count": 2,
+      "files": {
+        "index": "plugins/manga/index.jsonl",
+        "works": "plugins/manga/works.jsonl"
+      },
+      "searchable": {
+        "titles": "contains",
+        "creators": "contains",
+        "tags": "exact"
+      }
+    },
+    {
+      "id": "light-novel",
+      "name": "轻小说",
+      "version": "1.0.0",
+      "record_prefix": "novel",
+      "count": 3,
+      "work_count": 1,
+      "files": {
+        "index": "plugins/light-novel/index.jsonl",
+        "works": "plugins/light-novel/works.jsonl"
+      },
+      "searchable": {
+        "titles": "contains",
+        "creators": "contains",
+        "tags": "exact"
+      }
+    }
+  ]
+}

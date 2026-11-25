@@ -1,0 +1,10 @@
+{
+  "id": "light-novel",
+  "name": "轻小说",
+  "version": "1.0.0",
+  "plugin_api": "1.0",
+  "record_prefix": "novel",
+  "data": "data/works.jsonl",
+  "schema": "schema.json",
+  "capabilities": ["work.read", "work.list"]
+}
