@@ -1,0 +1,17 @@
+CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
+
+本仓库的「数据」部分适用本声明，包括但不限于：
+
+- plugins/<id>/data/works.jsonl   （手写数据）
+- generated/                     （构建产出的 JSONL 与 capabilities.json）
+
+在法律允许的最大范围内，作者（mugino-shizuri）放弃对该数据作品的一切
+著作权及邻接权利，并将其贡献至全世界公有领域。任何人可以出于任何目的、
+以任何形式复制、修改、分发、演绎本数据，无需署名，也无需获得许可。
+
+本声明不适用于本仓库的代码（kernel/、tests/），代码适用 MIT 许可证，
+见 LICENSE 文件。
+
+作品名称、作者署名、连载进度、出版日期等为事实性信息，不构成独创表达。
+
+完整法律文本：https://creativecommons.org/publicdomain/zero/1.0/legalcode
