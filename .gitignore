@@ -8,3 +8,10 @@ __pycache__/
 
 # 本地编辑器/工具数据，绝不入库
 .codebuddy/
+# 本地凭据，绝不入库
+.git-token
+.env
+.env.*
+*.pem
+*.key
+*.token
