@@ -1,9 +1,15 @@
 {
-  "api_version": "1.0",
+  "api_version": "1.1",
   "id_format": "<前缀>-<6位作品号>-<2位系列号>",
   "group_key_rule": "按 '-' 分割 id 取前两段，再用 '-' 连接",
   "defaults": {
     "part": "正篇"
+  },
+  "progress_semantics": {
+    "chapter": "连载最新话",
+    "volume": "已出版最新卷",
+    "independent": true,
+    "note": "两者独立采集、各自时点，不要求同步，不可互相推导，不可用卷数推算话数"
   },
   "plugins": [
     {

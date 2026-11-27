@@ -24,6 +24,17 @@ CAPABILITIES = ("work.read", "work.list")
 # 正篇记录时，无法区分「这是正篇」还是「归属未填」，筛选会静默漏数据。
 DEFAULT_PART = "正篇"
 
+# progress 两个键是两个独立事实（规格 v1.11）：连载先出话，单行本后结集，
+# 因此同一时点「最新话」与「最新卷」通常不相等，且各自有各自的更新节奏。
+# 这个语义同样必须声明到出口，否则消费方会拿卷数推算话数，或把两者不相等
+# 当成数据错误——两种都是静默错。
+PROGRESS_SEMANTICS = {
+    "chapter": "连载最新话",
+    "volume": "已出版最新卷",
+    "independent": True,
+    "note": "两者独立采集、各自时点，不要求同步，不可互相推导，不可用卷数推算话数",
+}
+
 # 推荐值：不强制，偏离时给建议性警告（不影响构建）
 RECOMMENDED_ROLES = ("author", "original", "art", "illustration",
                      "character_design", "director", "writer")
@@ -228,6 +239,10 @@ def validate_work(rec, prefix: str) -> list[str]:
                 err(f"`{f}` 含首尾空白：{v!r}")
 
     # ---- progress
+    # DECISION: 只校验「至少一个键、值为正整数」，不校验 chapter 与 volume 是否
+    # 同步。二者是独立事实（连载进度 / 出版进度），本来就不该相等；单条记录
+    # 也看不出两个数字是不是同一天取的。强行校验只会逼录入者编造匹配值，
+    # 把「不知道」变成「看起来知道」。
     pg = rec.get("progress")
     if isinstance(pg, dict):
         extra = set(pg) - {"chapter", "volume"}

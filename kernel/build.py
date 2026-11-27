@@ -22,6 +22,9 @@ import schema  # 同目录
 
 # 不设 generated_at：它记的是构建时间而非数据更新时间，且会让
 # 数据未变的构建也产生 git diff，破坏字节级幂等。需要新鲜度时看 git 历史。
+# DECISION: 1.1 相对 1.0 只新增 progress_semantics 声明（结构增加但不改既有字段），
+# 因此按语义化递增次位；消费方若硬校验 "1.0" 会失败，这是升版的本意——逼它重读声明。
+API_VERSION = "1.1"
 ID_FORMAT = "<前缀>-<6位作品号>-<2位系列号>"
 GROUP_KEY_RULE = "按 '-' 分割 id 取前两段，再用 '-' 连接"
 
@@ -310,10 +313,11 @@ def main() -> int:
         })
 
     caps = {
-        "api_version": "1.0",
+        "api_version": API_VERSION,
         "id_format": ID_FORMAT,
         "group_key_rule": GROUP_KEY_RULE,
         "defaults": {"part": schema.DEFAULT_PART},
+        "progress_semantics": schema.PROGRESS_SEMANTICS,
         "plugins": cap_plugins,
     }
     with open(tmp / "capabilities.json", "w", encoding="utf-8", newline="\n") as f:

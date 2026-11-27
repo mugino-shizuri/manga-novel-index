@@ -354,6 +354,52 @@ def t_failure_keeps_previous(root):
     return True, ""
 
 
+def t_caps_progress_semantics(root):
+    """出口必须声明 progress 两键独立。
+
+    缺这条声明，消费方会拿卷数推算话数、或把「话卷不相等」当成数据错误，
+    两种都是静默错——所以声明缺失必须测试红，而不是等上线后被误用。
+    """
+    ok, msg = expect_ok(root)
+    if not ok:
+        return ok, msg
+    c = caps(root)
+    if c.get("api_version") != "1.1":
+        return False, f"api_version 应为 1.1，实际 {c.get('api_version')!r}"
+    ps = c.get("progress_semantics")
+    if not isinstance(ps, dict):
+        return False, "capabilities.json 缺少 progress_semantics 声明"
+    if ps.get("independent") is not True:
+        return False, f"independent 不为 true：{ps!r}"
+    for k in ("chapter", "volume", "note"):
+        v = ps.get(k)
+        if not isinstance(v, str) or not v.strip():
+            return False, f"progress_semantics.{k} 缺失或为空：{ps!r}"
+    return True, ""
+
+
+def t_progress_keys_independent(root):
+    """chapter 单独、volume 单独、两者并存都必须合法。
+
+    旧测试只覆盖了 chapter；轻小说常见的「只有卷」从未被显式验证过。
+    """
+    write_data(root, "manga", [
+        dict(BASE, id="manga-900001-01", progress={"chapter": 96}),
+        dict(BASE, id="manga-900002-01", progress={"volume": 11}),
+        dict(BASE, id="manga-900003-01", progress={"chapter": 147, "volume": 15}),
+    ])
+    ok, msg = expect_ok(root)
+    if not ok:
+        return ok, msg
+    lines = (root / "generated/plugins/manga/works.jsonl").read_text(
+        encoding="utf-8").splitlines()
+    got = [json.loads(x)["progress"] for x in lines]
+    want = [{"chapter": 96}, {"volume": 11}, {"chapter": 147, "volume": 15}]
+    if got != want:
+        return False, f"progress 输出不符：{got} != {want}"
+    return True, ""
+
+
 CASES = [
     ("验收1 空配置构建成功且无插件文件", t_empty_config),
     ("验收2 只启用 manga", t_only_manga),
@@ -380,6 +426,8 @@ CASES = [
     ("对抗60 插件 id 格式非法（路径穿越）", t_bad_plugin_id),
     ("对抗61 data 路径越出插件目录", t_data_path_escape),
     ("契约 part 默认值写入 capabilities", t_defaults_present),
+    ("契约 progress 两键独立的声明存在", t_caps_progress_semantics),
+    ("契约 progress 两键可独立缺失", t_progress_keys_independent),
     ("建议性警告 role 偏离推荐值不阻断", t_warn_unknown_role),
     ("验收6 幂等：连续构建一致", t_idempotent),
     ("数据源回退：无正式数据时用示例并提示", t_example_fallback),

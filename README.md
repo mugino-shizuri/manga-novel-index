@@ -12,7 +12,7 @@
 
 | 项 | 值 |
 |---|---|
-| 契约版本 | `api_version` = `1.0` |
+| 契约版本 | `api_version` = `1.1`（1.0 → 1.1 只新增 `progress_semantics` 声明） |
 | 插件 | `manga`（漫画）3 条 / `light-novel`（轻小说）3 条 |
 | 数据来源 | `plugins/*/data/works.example.jsonl`（示例，入库）；正式数据 `plugins/*/data/works.jsonl`（本地，不入库） |
 | 派生层 | `generated/`（构建产出，可随时删除重建，**已入库以便 raw 读取**） |
@@ -65,10 +65,16 @@ https://raw.githubusercontent.com/mugino-shizuri/manga-novel-index/main/generate
 
 ```json
 {
-  "api_version": "1.0",
+  "api_version": "1.1",
   "id_format": "<前缀>-<6位作品号>-<2位系列号>",
   "group_key_rule": "按 '-' 分割 id 取前两段，再用 '-' 连接",
   "defaults": { "part": "正篇" },
+  "progress_semantics": {
+    "chapter": "连载最新话",
+    "volume": "已出版最新卷",
+    "independent": true,
+    "note": "两者独立采集、各自时点，不要求同步，不可互相推导，不可用卷数推算话数"
+  },
   "plugins": [
     {
       "id": "manga",
@@ -93,6 +99,7 @@ https://raw.githubusercontent.com/mugino-shizuri/manga-novel-index/main/generate
 | `plugins[].files` | 相对仓库根的路径 |
 | `plugins[].searchable` | 三个维度的匹配方式，见第 3 节 |
 | `defaults.part` | **缺省语义，必须读**。见第 6.1 节 |
+| `progress_semantics` | `progress` 两键的语义：`chapter` 是连载最新话、`volume` 是已出版最新卷，`independent: true`。**不得用卷数推算话数**。见第 5 节 |
 | `group_key_rule` | 如何从 `id` 得到「同一作品」的分组键 |
 
 出口**不含时间戳或随机字段**。需要判断数据新鲜度时看 git 历史（`git log -1 -- generated/`），而不是文件里的某个值。
@@ -166,7 +173,7 @@ group_key = "-".join(rec["id"].split("-")[:2])   # 正确
 | `id` | string | 是 | 三段格式；文件内唯一；**永不复用** |
 | `titles` | object[] | 是 | `{type, value}`，`type` ∈ `ja` / `ja_romaji` / `zh` / `zh_alias` / `en`；非空；值全局不重复 |
 | `creators` | object[] | 是 | `{role, name, aliases?}`；`role` 见下；非空 |
-| `progress` | object | 是 | `{chapter?, volume?}`，**至少一个**，值为 ≥1 的整数 |
+| `progress` | object | 是 | `{chapter?, volume?}`，**至少一个**，值为 ≥1 的整数。**两键独立**：`chapter` 是连载最新话、`volume` 是已出版最新卷，见下文 |
 | `tags` | string[] | 是 | 可为空数组；元素不重复 |
 | `synopsis` | string | 是 | **可为空字符串**（未撰写 ≠ 缺失） |
 | `sources` | object[] | 是 | `{type, url, updated?}`，**可为空数组**；`type` ∈ `aggregator` / `official` / `other`；`url` 须 http(s)；**首条为主源** |
@@ -183,13 +190,30 @@ group_key = "-".join(rec["id"].split("-")[:2])   # 正确
 
 这是**推荐值而非枚举**：其他取值允许写入，构建只给警告不报错。因此判断角色时按字符串比对，不要假定集合封闭。
 
-### 为什么 `progress` 的两个键都可选
+### `progress` 的两个键都可选——而且彼此独立
 
 `{chapter: 96, volume: 11}` 表示有话数也有卷数；`{volume: 33}` 表示只有卷（如轻小说）；`{chapter: 150}` 表示只有话（如网络连载）。**不能假定两者同时存在。**
 
+更重要的是：**两个值是两个独立事实，不是同一个进度的两种写法。**
+
+| 键 | 记的是 | 来源 | 更新节奏 |
+|---|---|---|---|
+| `chapter` | 连载最新话 | 杂志／网络连载页 | 每期更新 |
+| `volume` | 已出版最新卷 | 出版社书目、电商 | 2–3 个月一次，通常落后于话 |
+
+连载先出话、单行本后结集，所以同一时点「最新话」和「最新卷」**本来就不相等**——周刊连载常见落后一到两卷，月刊可能只差几话。差多少取决于连载节奏，没有一个通用系数。
+
+由此有三条硬规则：
+
+1. 两个键**各自取该口径的最新值**，缺失即该口径未知——不要用一个推算另一个。
+2. **禁止用「卷数 × 每卷话数」反推话数**：每卷收录话数并不固定（单行本、完全版、爱藏版都不同）。
+3. `status` / `ended` 只与 `chapter` 同源；`volume` 不参与状态判断（"连载中"说的是话还在连载）。
+
+`capabilities.json` 的 `progress_semantics` 就是这个声明的出口形态，消费方应读它而不是猜。**机器拦不住违规**：`{chapter: 1, volume: 99}` 格式完全合法，构建不会报错。
+
 ---
 
-## 6. 三个必知陷阱
+## 6. 四个必知陷阱
 
 ### 6.1 `part` 缺失等于「正篇」
 
@@ -215,6 +239,20 @@ if rec.get("part") == "正篇":                     # 错误，会漏掉全部�
 《一拳超人》重制版与原作版的 `titles` 一字不差，只能靠 `variant` 区分。同理《Re:Zero》正篇 / `Ex` 外传 / 短篇集是三条记录。
 
 **判断"是否同一部作品"看 `group_key`，判断"是哪一本"看 `variant` 与 `part`，不要看名称。**
+
+### 6.4 用卷数推算话数必然算错
+
+`volume` 与 `chapter` 是两个独立计数，**不能互相换算**。三部作品的真值 (2026-11)：
+
+| 作品 | 话 | 卷 | 每卷约 |
+|---|---|---|---|
+| 航海王 | 1199 | 112 | 10.7 话 |
+| 鬼灭之刃 | 205 | 23 | 8.9 话 |
+| 龙珠 | 519 | 42 | 12.4 话 |
+
+系数在 **8.9–12.4** 之间浮动，没有任何固定值。拿一个系数去推另一部，误差几十到上百话。同作品的不同版本更极端：龙珠 519 话对应单行本 42 卷、完全版 34 卷、全彩版 32 卷。
+
+**机器拦不住**：`{chapter: 147, volume: 15}` 合法，`{chapter: 15, volume: 147}` 也合法，构建都不会报错。只能靠录入纪律 + 消费方读懂 `progress_semantics` 来避免。
 
 ---
 
@@ -319,6 +357,8 @@ db.commit()
 | `role`/`variant`/`part` 自由文本未归一 | `重制版` 与 `重製版` 会并存，仅 stderr 警告 |
 | `sources` 顺序错误 | 首条应为主源，顺序不参与校验 |
 | 事实填错但格式合法 | 静默入库 |
+| 用卷数推算话数 | 系数 8.9–12.4 不固定，误差几十到上百话（见 6.4） |
+| `chapter` 与 `volume` 取到了不同日期的值 | 无法从记录判断，只能靠录入时记清各自出处 |
 | 异体字写法遗漏 | 该写法查不到 |
 | ID 删除后被复用 | 构建期无法检测，只能查 Git 历史 |
 
@@ -330,7 +370,8 @@ db.commit()
 - **无增量构建**：每次全量重建，当前规模下耗时可忽略
 - **无服务端**：只有静态文件。需要搜索 API 时另行部署，直接消费 `generated/`
 - **`plugins/*/schema.json` 尚未生效**：插件级字段扩展点已预留，当前两插件均为空，构建器暂不读取
-- **`contracts/*.schema.json` 是生成物**：由 `kernel/emit_contracts.py` 从 `schema.py` 导出，只表达形状。跨字段语义（`id` 前缀须等于 `record_prefix`、作品号唯一、`part` 缺省为正篇）无法用 JSON Schema 表达，仍在 `schema.py` 与本文档中；CI 会校验两者同步，手改 contracts 会失败
+- **`chapter` / `volume` 无各自时间戳**：一条记录里只能表达两个数字，表达不了"话是 11 月、卷是 8 月"。需要判断某个数字的新鲜度时，只能看 `sources[].updated` 或 git 历史。要彻底解决需给 `progress` 加 per-key 日期（属结构性变更，尚未做）
+- **`contracts/*.schema.json` 是生成物**：由 `kernel/emit_contracts.py` 从 `schema.py` 导出，只表达形状。跨字段语义（`id` 前缀须等于 `record_prefix`、作品号唯一、`part` 缺省为正篇、`chapter`/`volume` 相互独立）无法用 JSON Schema 表达，仍在 `schema.py` 与本文档中；CI 会校验两者同步，手改 contracts 会失败
 
 ---
 
