@@ -130,6 +130,7 @@ def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     example_plugins: list[str] = []
+    local_plugins: list[str] = []
     plugins: list[dict] = []
     used_prefix: dict[str, str] = {}
     seen_plugin_ids: set[str] = set()
@@ -227,6 +228,8 @@ def main() -> int:
             continue
         if is_example:
             example_plugins.append(p["id"])
+        else:
+            local_plugins.append(p["id"])
 
         recs: list[dict] = []
         first_seen: dict[str, int] = {}
@@ -329,6 +332,9 @@ def main() -> int:
     if example_plugins:
         print(f"[SRC] 使用示例数据：{'、'.join(example_plugins)}"
               f"（正式数据放到 plugins/<id>/data/works.jsonl，该文件不入库）")
+    if local_plugins:
+        print(f"[WARN] 以下插件使用了本地正式数据：{'、'.join(local_plugins)}；"
+              f"generated/ 现在反映的是本地数据，请勿提交", file=sys.stderr)
     if warnings:
         print(f"\n[WARN] {len(warnings)} 条建议性提示（不影响构建结果）：", file=sys.stderr)
         for w in warnings:
