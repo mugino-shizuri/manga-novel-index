@@ -400,6 +400,50 @@ def t_progress_keys_independent(root):
     return True, ""
 
 
+def t_stats_line(root):
+    """构建末尾必须打印可信度体检行，且不因体检项影响退出码。
+
+    示例数据 6 条、sources 全为空数组——这正是「零来源记录可以存在，
+    但不能悄悄存在」要暴露的情形。
+    """
+    r = run(root)
+    if r.returncode != 0:
+        return False, r.stdout + r.stderr
+    lines = [l for l in r.stdout.splitlines() if l.startswith("[STAT]")]
+    if not lines:
+        return False, f"缺少 [STAT] 体检行\n{r.stdout}"
+    if "6 条记录" not in lines[0]:
+        return False, f"总数不符：{lines[0]}"
+    if "无来源 6" not in lines[0]:
+        return False, f"无来源条数不符：{lines[0]}"
+    return True, ""
+
+
+def t_stats_counts(root):
+    """体检行的四个计数必须算对，且零来源/单源互斥。"""
+    write_cfg(root, ["manga"])          # 只启用 manga，否则 light-novel 的示例数据会混进总数
+    write_data(root, "manga", [
+        dict(BASE, id="manga-900001-01", sources=[]),
+        dict(BASE, id="manga-900002-01",
+             sources=[{"type": "official", "url": "https://example.com/a"}]),
+        dict(BASE, id="manga-900003-01", status="连载中",
+             titles=[{"type": "ja", "value": "テスト"}, {"type": "zh", "value": "测试"}],
+             sources=[{"type": "official", "url": "https://example.com/a"},
+                      {"type": "aggregator", "url": "https://example.com/b"}]),
+    ])
+    r = run(root)
+    if r.returncode != 0:
+        return False, r.stdout + r.stderr
+    stat = next((l for l in r.stdout.splitlines() if l.startswith("[STAT]")), "")
+    want = {"无来源": 1, "单源": 1, "status 缺失": 2, "无 ja 标题": 2}
+    for k, v in want.items():
+        if f"{k} {v}" not in stat:
+            return False, f"{k} 期望 {v}，实际行：{stat}"
+    if "3 条记录" not in stat:
+        return False, f"总数不符：{stat}"
+    return True, ""
+
+
 CASES = [
     ("验收1 空配置构建成功且无插件文件", t_empty_config),
     ("验收2 只启用 manga", t_only_manga),
@@ -428,6 +472,8 @@ CASES = [
     ("契约 part 默认值写入 capabilities", t_defaults_present),
     ("契约 progress 两键独立的声明存在", t_caps_progress_semantics),
     ("契约 progress 两键可独立缺失", t_progress_keys_independent),
+    ("体检 构建末尾打印 [STAT] 行", t_stats_line),
+    ("体检 [STAT] 四项计数正确", t_stats_counts),
     ("建议性警告 role 偏离推荐值不阻断", t_warn_unknown_role),
     ("验收6 幂等：连续构建一致", t_idempotent),
     ("数据源回退：无正式数据时用示例并提示", t_example_fallback),

@@ -266,7 +266,7 @@ cd <repo>
 
 python3 kernel/build.py           # 重新生成 generated/
 python3 kernel/emit_contracts.py  # 从 schema.py 重新导出 contracts/
-python3 tests/run_tests.py        # 31 项契约与对抗测试
+python3 tests/run_tests.py        # 35 项契约与对抗测试
 ```
 
 构建行为：
@@ -274,11 +274,12 @@ python3 tests/run_tests.py        # 31 项契约与对抗测试
 - 校验失败 → 退出码 `1`，打印全部错误与行号，**`generated/` 保持上一版不变**
 - 配置不可读 → 退出码 `2`
 - 成功 → 退出码 `0`；建议性警告走 stderr，不影响退出码
+- **成功时打印一行 `[STAT]` 体检**：无来源 / 单源 / `status` 缺失 / 无 `ja` 标题 的条数。只报告，不校验、不影响退出码——零来源的记录允许存在（有些作品暂时查不到可引用的页面），但不能悄悄存在
 - 输出**逐字节可复现**：键序固定、记录按 `id` 升序、无时间戳、无随机量——数据未变时连续构建的产物完全一致，`git status` 保持干净
 
 构建是原子的：先写 `.generated.tmp/`，全部成功后才替换 `generated/`。中断不会留下半套文件。
 
-CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 31 项测试；Python 3.11 / 3.12 / 3.13 / 3.14 四档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
+CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 35 项测试；Python 3.11 / 3.12 / 3.13 / 3.14 四档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
 
 需要 SQL 查询时，自行把 JSONL 导入 SQLite（不入 Git）：
 

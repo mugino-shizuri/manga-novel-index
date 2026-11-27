@@ -108,6 +108,31 @@ def normalize_work(rec: dict) -> dict:
             if k in rec and rec[k] is not None}
 
 
+STAT_KEYS = ("无来源", "单源", "status 缺失", "无 ja 标题")
+
+
+def record_stats(recs: list[dict]) -> dict[str, int]:
+    """可信度体检：只统计，不判断对错、不阻断、不影响退出码。
+
+    DECISION: 这几项都是「可信度层」指标，不进索引、也不进校验。
+    `sources: []` 允许存在（有些作品暂时查不到可引用页面），但**不能悄悄存在**——
+    零来源的记录与双源核实过的记录，在文件里看不出区别，所以把条数打印出来。
+    同理 `status` 缺失、缺日文原名的条数也一并统计，避免整批缺某个维度而无人察觉。
+    """
+    st = {k: 0 for k in STAT_KEYS}
+    for r in recs:
+        src = r.get("sources") or []
+        if not src:
+            st["无来源"] += 1
+        elif len(src) == 1:
+            st["单源"] += 1
+        if r.get("status") is None:
+            st["status 缺失"] += 1
+        if not any(t.get("type") == "ja" for t in (r.get("titles") or [])):
+            st["无 ja 标题"] += 1
+    return st
+
+
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
@@ -336,6 +361,19 @@ def main() -> int:
     if example_plugins:
         print(f"[SRC] 使用示例数据：{'、'.join(example_plugins)}"
               f"（正式数据放到 plugins/<id>/data/works.jsonl，该文件不入库）")
+
+    # ---- 可信度体检行（不阻断）
+    agg = {k: 0 for k in STAT_KEYS}
+    per_plugin: list[tuple[str, dict[str, int]]] = []
+    for p, recs in results:
+        s = record_stats(recs)
+        per_plugin.append((p["id"], s))
+        for k in STAT_KEYS:
+            agg[k] += s[k]
+    print(f"[STAT] {total} 条记录：" + " ｜ ".join(f"{k} {agg[k]}" for k in STAT_KEYS))
+    for pid, s in per_plugin:
+        if any(s.values()):
+            print(f"  - {pid}: " + " ｜ ".join(f"{k} {s[k]}" for k in STAT_KEYS if s[k]))
     if local_plugins:
         print(f"[WARN] 以下插件使用了本地正式数据：{'、'.join(local_plugins)}；"
               f"generated/ 现在反映的是本地数据，请勿提交", file=sys.stderr)
