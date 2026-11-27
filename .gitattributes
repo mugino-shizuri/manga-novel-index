@@ -1,0 +1,4 @@
+# 行尾统一为 LF。
+# generated/ 与 contracts/ 都要求逐字节可复现，任何 CRLF 转换都会让 CI 的
+# git diff --exit-code 误报。这里强制仓库内一律 LF，不依赖各机器的 autocrlf 设置。
+* text=auto eol=lf
