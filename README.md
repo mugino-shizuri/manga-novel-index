@@ -229,7 +229,7 @@ python3 tests/run_tests.py        # 30 项契约与对抗测试
 
 构建是原子的：先写 `.generated.tmp/`，全部成功后才替换 `generated/`。中断不会留下半套文件。
 
-CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 30 项测试；Python 3.11 / 3.12 / 3.13 三档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
+CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 30 项测试；Python 3.11 / 3.12 / 3.13 / 3.14 四档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
 
 需要 SQL 查询时，自行把 JSONL 导入 SQLite（不入 Git）：
 
