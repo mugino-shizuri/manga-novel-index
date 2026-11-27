@@ -215,8 +215,9 @@ if rec.get("part") == "正篇":                     # 错误，会漏掉全部�
 git clone <repo-url>
 cd <repo>
 
-python3 kernel/build.py          # 重新生成 generated/
-python3 tests/run_tests.py       # 29 项契约与对抗测试
+python3 kernel/build.py           # 重新生成 generated/
+python3 kernel/emit_contracts.py  # 从 schema.py 重新导出 contracts/
+python3 tests/run_tests.py        # 30 项契约与对抗测试
 ```
 
 构建行为：
@@ -227,6 +228,8 @@ python3 tests/run_tests.py       # 29 项契约与对抗测试
 - 输出**逐字节可复现**：键序固定、记录按 `id` 升序、无时间戳、无随机量——数据未变时连续构建的产物完全一致，`git status` 保持干净
 
 构建是原子的：先写 `.generated.tmp/`，全部成功后才替换 `generated/`。中断不会留下半套文件。
+
+CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 30 项测试；Python 3.11 / 3.12 / 3.13 三档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
 
 需要 SQL 查询时，自行把 JSONL 导入 SQLite（不入 Git）：
 
@@ -252,7 +255,11 @@ db.commit()
 ├── config/deployment.json          # 启用哪些插件（顺序即构建顺序）
 ├── kernel/
 │   ├── schema.py                   # 字段约束的唯一真相源（V1–V15 的可执行形态）
-│   └── build.py                     # 构建器：校验 → 生成三类出口
+│   ├── build.py                     # 构建器：校验 → 生成三类出口
+│   └── emit_contracts.py            # 从 schema.py 导出 contracts/*.schema.json
+├── contracts/
+│   ├── work.schema.json            # 作品记录形状（生成物，勿手改）
+│   └── plugin.schema.json          # plugin.json 形状（生成物，勿手改）
 ├── plugins/
 │   ├── manga/
 │   │   ├── plugin.json             # 插件声明（8 字段）
@@ -310,7 +317,7 @@ db.commit()
 - **无增量构建**：每次全量重建，当前规模下耗时可忽略
 - **无服务端**：只有静态文件。需要搜索 API 时另行部署，直接消费 `generated/`
 - **`plugins/*/schema.json` 尚未生效**：插件级字段扩展点已预留，当前两插件均为空，构建器暂不读取
-- **`contracts/*.schema.json` 未生成**：真相源在 `kernel/schema.py`
+- **`contracts/*.schema.json` 是生成物**：由 `kernel/emit_contracts.py` 从 `schema.py` 导出，只表达形状。跨字段语义（`id` 前缀须等于 `record_prefix`、作品号唯一、`part` 缺省为正篇）无法用 JSON Schema 表达，仍在 `schema.py` 与本文档中；CI 会校验两者同步，手改 contracts 会失败
 
 ---
 

@@ -1,0 +1,50 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate (py ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # 1. 校验数据并重建 generated/（失败则退出码 1，不产出残缺结果）
+      - name: 构建
+        run: python kernel/build.py
+
+      # 2. 出口必须与数据一致：改了 data 却忘记重建、或手改了 generated/ 都会在这里失败
+      - name: generated/ 与数据同步
+        run: |
+          if ! git diff --quiet -- generated/; then
+            echo "::error::generated/ 与 plugins/*/data/ 不一致 —— 改了数据请重新构建并提交"
+            git --no-pager diff --stat -- generated/
+            exit 1
+          fi
+
+      # 3. 契约文件必须与 schema.py 一致（schema.py 是唯一真相源）
+      - name: contracts/ 与 schema.py 同步
+        run: python kernel/emit_contracts.py --check
+
+      # 4. 29 项契约与对抗测试
+      - name: 契约与对抗测试
+        run: python tests/run_tests.py

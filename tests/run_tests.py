@@ -311,6 +311,20 @@ def t_no_timestamp(root):
     return True, ""
 
 
+def t_contracts_in_sync(root):
+    """contracts/ 必须是由 schema.py 导出的那一份，不能手改。
+
+    schema.py 是唯一真相源；contracts/*.schema.json 只是给外部工具看的投影。
+    两份并存必然漂移，所以每次构建前用 --check 逐字节比对。
+    """
+    r = subprocess.run(
+        [PY, str(root / "kernel" / "emit_contracts.py"), "--root", str(root), "--check"],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        return False, r.stdout + r.stderr
+    return True, ""
+
+
 def t_failure_keeps_previous(root):
     ok, msg = expect_ok(root)
     if not ok:
@@ -354,6 +368,7 @@ CASES = [
     ("契约 part 默认值写入 capabilities", t_defaults_present),
     ("建议性警告 role 偏离推荐值不阻断", t_warn_unknown_role),
     ("验收6 幂等：连续构建一致", t_idempotent),
+    ("契约 contracts/ 与 schema.py 同步", t_contracts_in_sync),
     ("出口无时间戳字段", t_no_timestamp),
     ("验收4 失败不留残骸、原子替换", t_failure_keeps_previous),
 ]
