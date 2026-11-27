@@ -14,10 +14,21 @@
 |---|---|
 | 契约版本 | `api_version` = `1.0` |
 | 插件 | `manga`（漫画）3 条 / `light-novel`（轻小说）3 条 |
-| 数据来源 | `plugins/*/data/works.jsonl`（唯一手写层） |
+| 数据来源 | `plugins/*/data/works.example.jsonl`（示例，入库）；正式数据 `plugins/*/data/works.jsonl`（本地，不入库） |
 | 派生层 | `generated/`（构建产出，可随时删除重建，**已入库以便 raw 读取**） |
 
 **仓库地址**：`mugino-shizuri/manga-novel-index`（已发布）。
+
+### 数据分层（早期阶段）
+
+| 文件 | 是否入库 | 用途 |
+|---|---|---|
+| `plugins/*/data/works.example.jsonl` | ✅ 入库 | 示例数据；CI 与测试的运行基础，公开 raw 当前也由它构建 |
+| `plugins/*/data/works.jsonl` | ❌ 本地 | 正式数据；爬取或录入后只放本地，已被 `.gitignore` 排除 |
+
+`build.py` 优先读 `works.jsonl`，缺失时回退 `works.example.jsonl`，并在输出打印 `[SRC]` 说明实际用了哪一份——避免误以为在构建真实数据。
+
+> ⚠️ `generated/` 是由**示例数据**构建并提交的。本地放了正式数据后再构建，`generated/` 会变脏；此时**不要提交它**，否则会把本地数据连带发布出去。
 
 ---
 
@@ -217,7 +228,7 @@ cd <repo>
 
 python3 kernel/build.py           # 重新生成 generated/
 python3 kernel/emit_contracts.py  # 从 schema.py 重新导出 contracts/
-python3 tests/run_tests.py        # 30 项契约与对抗测试
+python3 tests/run_tests.py        # 31 项契约与对抗测试
 ```
 
 构建行为：
@@ -229,7 +240,7 @@ python3 tests/run_tests.py        # 30 项契约与对抗测试
 
 构建是原子的：先写 `.generated.tmp/`，全部成功后才替换 `generated/`。中断不会留下半套文件。
 
-CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 30 项测试；Python 3.11 / 3.12 / 3.13 / 3.14 四档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
+CI（`.github/workflows/validate.yml`）在 push 与 PR 时执行同一套检查：构建 → 检查 `generated/` 无差异 → 检查 `contracts/` 无差异 → 跑 31 项测试；Python 3.11 / 3.12 / 3.13 / 3.14 四档并行。改了数据却忘记重建 `generated/`，会在 CI 里直接失败。
 
 需要 SQL 查询时，自行把 JSONL 导入 SQLite（不入 Git）：
 
@@ -264,7 +275,9 @@ db.commit()
 │   ├── manga/
 │   │   ├── plugin.json             # 插件声明（8 字段）
 │   │   ├── schema.json             # 插件级字段扩展（当前为空）
-│   │   └── data/works.jsonl        # ← 手写数据，唯一编辑入口
+│   │   └── data/
+│   │       ├── works.example.jsonl  # ← 示例数据，入库，CI 与测试用它
+│   │       └── works.jsonl          # ← 正式数据，本地，已被 .gitignore 排除
 │   └── light-novel/
 │       └── ...
 ├── generated/                       # 构建产出，可删可重建，已入库
@@ -286,7 +299,7 @@ db.commit()
 3. 判定每个事实是「已落地」还是「预期/传闻」
    - 已落地 → 写入对应字段
    - 未确认 → 省略字段或留空，不猜
-4. 编辑 plugins/<id>/data/works.jsonl（一行一条，不换行）
+4. 编辑 `plugins/<id>/data/works.jsonl`（正式数据，本地，一行一条，不换行）
 5. 运行 python3 kernel/build.py
 6. 校验通过后提交 data/ 与 generated/
 ```

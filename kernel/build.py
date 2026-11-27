@@ -61,6 +61,21 @@ def unsafe_rel(rel) -> bool:
     return ".." in re.split(r"[\\/]", rel)
 
 
+def resolve_data(dp: Path) -> tuple[Path | None, bool]:
+    """解析数据源：优先正式数据，缺失时回退示例数据。
+
+    DECISION: 早期阶段正式数据只在本地、不入库；仓库里提交的是
+    <name>.example.jsonl。回退必须可见（返回值里的 bool），构建末尾会打印
+    实际使用的来源——否则很容易以为在构建真实数据，实际构建的是示例。
+    """
+    if dp.is_file():
+        return dp, False
+    alt = dp.with_name(f"{dp.stem}.example{dp.suffix}")
+    if alt.is_file():
+        return alt, True
+    return None, False
+
+
 def build_index(rec: dict) -> dict:
     """索引行：只含检索字段 + 区分字段。"""
     idx: dict = {
@@ -114,6 +129,7 @@ def main() -> int:
 
     errors: list[str] = []
     warnings: list[str] = []
+    example_plugins: list[str] = []
     plugins: list[dict] = []
     used_prefix: dict[str, str] = {}
     seen_plugin_ids: set[str] = set()
@@ -203,13 +219,18 @@ def main() -> int:
         dp = p["data_path"]
         if dp is None:
             continue  # 路径非法已记录错误
-        if not dp.is_file():
-            errors.append(f"plugins/{p['id']}: 数据文件不存在 {p['data']}")
+        data_src, is_example = resolve_data(dp)
+        if data_src is None:
+            errors.append(
+                f"plugins/{p['id']}: 数据文件不存在 {p['data']}，"
+                f"也没有可回退的 {dp.stem}.example{dp.suffix}")
             continue
+        if is_example:
+            example_plugins.append(p["id"])
 
         recs: list[dict] = []
         first_seen: dict[str, int] = {}
-        with open(dp, encoding="utf-8-sig") as f:
+        with open(data_src, encoding="utf-8-sig") as f:
             for lineno, raw in enumerate(f, 1):
                 text = raw.strip()
                 # DECISION: 空行跳过，容忍文件末尾换行与手工排版空行
@@ -305,6 +326,9 @@ def main() -> int:
     print(f"[OK] 构建完成：{len(cap_plugins)} 个插件，{total} 条记录")
     for c in cap_plugins:
         print(f"  - {c['id']}: count={c['count']} work_count={c['work_count']}")
+    if example_plugins:
+        print(f"[SRC] 使用示例数据：{'、'.join(example_plugins)}"
+              f"（正式数据放到 plugins/<id>/data/works.jsonl，该文件不入库）")
     if warnings:
         print(f"\n[WARN] {len(warnings)} 条建议性提示（不影响构建结果）：", file=sys.stderr)
         for w in warnings:

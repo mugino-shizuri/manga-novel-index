@@ -15,3 +15,5 @@ __pycache__/
 *.pem
 *.key
 *.token
+# 正式数据只在本地，不入库；仓库里提交的是 works.example.jsonl
+plugins/*/data/works.jsonl

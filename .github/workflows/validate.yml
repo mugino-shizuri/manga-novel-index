@@ -45,6 +45,6 @@ jobs:
       - name: contracts/ 与 schema.py 同步
         run: python kernel/emit_contracts.py --check
 
-      # 4. 29 项契约与对抗测试
+      # 4. 31 项契约与对抗测试
       - name: 契约与对抗测试
         run: python tests/run_tests.py

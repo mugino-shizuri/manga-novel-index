@@ -17,7 +17,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PY = sys.executable
 IGNORE = shutil.ignore_patterns(
-    "generated", ".generated.tmp", ".git", ".codebuddy", "__pycache__")
+    "generated", ".generated.tmp", ".git", ".codebuddy", "__pycache__",
+    "works.jsonl")  # 本地正式数据不参与测试，测试一律从 works.example.jsonl 起
 
 # 一条结构合法的基线记录，各用例在其上做单点破坏
 BASE = {
@@ -311,6 +312,19 @@ def t_no_timestamp(root):
     return True, ""
 
 
+def t_example_fallback(root):
+    """没有正式数据时必须回退 works.example.jsonl，并在输出里明确告知。"""
+    p = root / "plugins" / "manga" / "data" / "works.jsonl"
+    if p.exists():
+        p.unlink()
+    r = run(root)
+    if r.returncode != 0:
+        return False, r.stdout + r.stderr
+    if "[SRC]" not in r.stdout:
+        return False, "回退了示例数据却没有提示：\n" + r.stdout
+    return True, ""
+
+
 def t_contracts_in_sync(root):
     """contracts/ 必须是由 schema.py 导出的那一份，不能手改。
 
@@ -368,6 +382,7 @@ CASES = [
     ("契约 part 默认值写入 capabilities", t_defaults_present),
     ("建议性警告 role 偏离推荐值不阻断", t_warn_unknown_role),
     ("验收6 幂等：连续构建一致", t_idempotent),
+    ("数据源回退：无正式数据时用示例并提示", t_example_fallback),
     ("契约 contracts/ 与 schema.py 同步", t_contracts_in_sync),
     ("出口无时间戳字段", t_no_timestamp),
     ("验收4 失败不留残骸、原子替换", t_failure_keeps_previous),
